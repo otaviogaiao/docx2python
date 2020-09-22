@@ -68,6 +68,7 @@ def gather_rPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
                 <w:sz w:val="32"/>
                 <w:szCs w:val="32"/>
                 <w:u w:val="single"/>
+                <w:strike w:val="true"/>
             </w:rPr>
             <w:t>text styled  with rPr
             </w:t>
@@ -83,6 +84,7 @@ def gather_rPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
             "sz": "32",
             "color": "red",
             "szCs": "32",
+            "s": None,
         }
     """
     try:
@@ -115,9 +117,10 @@ def get_run_style(run_element: ElementTree.Element) -> List[Tuple[str, str]]:
     rPr2val = gather_rPr(run_element)
     style = []
     font_styles = []
-
     for tag, val in sorted(rPr2val.items()):
-        if tag in {"b", "i", "u"}:
+        if tag in {"strike", "s"}:
+            style.append(("s", ""))
+        elif tag in {"b", "i", "u"}:
             style.append((tag, ""))
         elif tag == "sz":
             font_styles.append('size="{}"'.format(val))

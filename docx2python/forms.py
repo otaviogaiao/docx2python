@@ -70,7 +70,8 @@ def get_ddList_entry(ddList: Element) -> str:
         x.attrib.get(qn("w:val")) for x in ddList.findall(qn("w:listEntry"))
     ]
     try:
-        list_index = int(ddList.find(qn("w:result")).attrib.get(qn("w:val"), 0))
+        list_index = int(ddList.find(
+            qn("w:result")).attrib.get(qn("w:val"), 0))
     except AttributeError:
         list_index = 0
     return list_entries[list_index]
