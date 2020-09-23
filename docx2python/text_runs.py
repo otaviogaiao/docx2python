@@ -39,7 +39,80 @@ def _elem_tag_str(elem: ElementTree.Element) -> str:
     return re.match(r"{.*}(?P<tag_name>\w+)", elem.tag).group("tag_name")
 
 
+def gather_tcPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
+    """
+    Gather formatting elements for a table cell.
+
+    :param run_element: a ``<w:tc>`` xml element
+
+    create with::
+
+        document = ElementTree.fromstring('bytes string')
+        # recursively search document for <w:r> elements.
+
+    :return: Style names ('b/', 'sz', etc.) mapped to values.
+
+    To keep things more homogeneous, I've given tags list b/ (bold) a value of None,
+    even though they don't take a value in xml.
+
+    Each element of rPr will be either present (returned tag: None) or have a value
+    (returned tag: val).
+
+    **E.g., given**::
+
+        <w:tc>
+            <w:tcPr>
+                <w:tcW w:w="2880" w:type="dxa"/>
+                <w:gridSpan w:val="2"/>
+            </w:tcPr>
+            <w:p>
+                <w:r>
+                    <w:t>AAA</w:t>
+                </w:r>
+            </w:p>
+        </w:tc>
+
+    **E.g., returns**::
+
+        {
+            "gridSpan": "2"
+        }
+    """
+    try:
+        tcPr = run_element.find(qn("w:tcPr"))
+        return {_elem_tag_str(x): x.attrib.get(qn("w:val"), None) for x in tcPr}
+    except TypeError:
+        # no formatting for run
+        return {}
+
 # noinspection PyPep8Naming
+
+
+def get_table_cell_style(run_element: ElementTree.Element) -> List[Tuple[str, str]]:
+    """Select only tcPr tags you'd like to implement.
+
+    :param run_element: a ``<w:tc>`` xml element
+
+    create with::
+
+        document = ElementTree.fromstring('bytes string')
+        # recursively search document for <w:tc> elements.
+
+    :return: ``[(tcPr, val), (tcPr, val) ...]``
+
+    Also see docstring for ``gather_tcPr``
+    """
+    tcPr2val = gather_tcPr(run_element)
+    style = []
+    for tag, val in sorted(tcPr2val.items()):
+        if tag in {"gridSpan"}:
+            style.append((tag, f'val="{val}"'))
+
+    return style
+
+# noinspection PyPep8Naming
+
+
 def gather_rPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
     """
     Gather formatting elements for a text run.

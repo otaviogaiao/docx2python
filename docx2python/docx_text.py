@@ -20,7 +20,7 @@ from .depth_collector import DepthCollector
 from .forms import get_checkBox_entry, get_ddList_entry
 from .iterators import enum_at_depth
 from .namespace import qn
-from .text_runs import get_run_style, style_close, style_open
+from .text_runs import get_run_style, style_close, style_open, get_table_cell_style
 
 TablesList = List[List[List[List[str]]]]
 
@@ -28,6 +28,7 @@ TablesList = List[List[List[List[str]]]]
 TABLE = qn("w:tbl")
 TABLE_ROW = qn("w:tr")
 TABLE_CELL = qn("w:tc")
+TABLE_CELL_PROPERTY = qn("w:tcPr")
 PARAGRAPH = qn("w:p")
 RUN = qn("w:r")
 TEXT = qn("w:t")
@@ -165,7 +166,6 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
         """
         for child in branch:
             tag = child.tag
-
             # set caret depth
             if tag == TABLE:
                 tables.set_caret(1)
@@ -173,6 +173,7 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
                 tables.set_caret(2)
             elif tag == TABLE_CELL:
                 tables.set_caret(3)
+                tables.cell_style = get_table_cell_style(child)
             elif tag == PARAGRAPH:
                 tables.set_caret(4)
 
@@ -184,8 +185,11 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
                 # new text run
                 run_style = get_run_style(child)
                 open_style = getattr(tables, "open_style", ())
+                cell_style = getattr(tables, "cell_style", ())
                 if run_style != open_style:
                     tables.insert(style_close(open_style))
+                    if cell_style:
+                        tables.insert(style_open(cell_style))
                     tables.insert(style_open(run_style))
                     tables.open_style = run_style
 
@@ -199,11 +203,13 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
 
             elif tag == FOOTNOTE:
                 if "separator" not in child.attrib.get(qn("w:type"), "").lower():
-                    tables.insert("footnote{})\t".format(child.attrib[qn("w:id")]))
+                    tables.insert("footnote{})\t".format(
+                        child.attrib[qn("w:id")]))
 
             elif tag == ENDNOTE:
                 if "separator" not in child.attrib.get(qn("w:type"), "").lower():
-                    tables.insert("endnote{})\t".format(child.attrib[qn("w:id")]))
+                    tables.insert("endnote{})\t".format(
+                        child.attrib[qn("w:id")]))
 
             elif tag == HYPERLINK:
                 # look for an href, ignore internal references (anchors)
@@ -220,10 +226,12 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
 
             # add placeholders
             elif tag == FOOTNOTE_REFERENCE:
-                tables.insert("----footnote{}----".format(child.attrib[qn("w:id")]))
+                tables.insert(
+                    "----footnote{}----".format(child.attrib[qn("w:id")]))
 
             elif tag == ENDNOTE_REFERENCE:
-                tables.insert("----endnote{}----".format(child.attrib[qn("w:id")]))
+                tables.insert(
+                    "----endnote{}----".format(child.attrib[qn("w:id")]))
 
             elif tag == IMAGE:
                 rId = child.attrib[qn("r:embed")]
@@ -246,7 +254,11 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
             # close elements
             if tag == PARAGRAPH and do_html is True:
                 tables.insert(style_close(getattr(tables, "open_style", ())))
+                cell_style = getattr(tables, "cell_style", ())
+                if cell_style:
+                    tables.insert(style_close(cell_style))
                 tables.open_style = ()
+                tables.cell_style = ()
 
             if tag in {TABLE_ROW, TABLE_CELL, PARAGRAPH}:
                 tables.raise_caret()
