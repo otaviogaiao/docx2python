@@ -162,7 +162,6 @@ def gather_pPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
         elements = {}
         for x in pPr:
             tag = _elem_tag_str(x)
-            print(tag)
             if tag == "spacing":
                 elements[tag] = {'before': x.attrib.get(
                     qn("w:before"), None), 'after': x.attrib.get(qn("w:after"), None),
