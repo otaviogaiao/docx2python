@@ -20,7 +20,7 @@ from .depth_collector import DepthCollector
 from .forms import get_checkBox_entry, get_ddList_entry
 from .iterators import enum_at_depth
 from .namespace import qn
-from .text_runs import get_run_style, style_close, style_open, get_table_cell_style
+from .text_runs import get_run_style, style_close, style_open, get_table_cell_style, get_paragraph_style
 
 TablesList = List[List[List[List[str]]]]
 
@@ -180,6 +180,16 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
             # open elements
             if tag == PARAGRAPH:
                 tables.insert(_get_bullet_string(child, context))
+                if do_html is True:
+                    paragraph_style = get_paragraph_style(child)
+                    open_p_styles = getattr(tables, "open_p_styles", [])
+                    tables.insert(style_open(paragraph_style))
+                    open_p_styles.append(paragraph_style)
+                    tables.open_p_styles = open_p_styles
+                    # if paragraph_style != open_p_style:
+                    #     tables.insert(style_close(open_p_style))
+                    #     tables.insert(style_open(paragraph_style))
+                    #     tables.open_p_style = paragraph_style
 
             elif tag == RUN and do_html is True:
                 # new text run
@@ -254,11 +264,19 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
             # close elements
             if tag == PARAGRAPH and do_html is True:
                 tables.insert(style_close(getattr(tables, "open_style", ())))
+                # talvez tenha que inverter cell e p_style
                 cell_style = getattr(tables, "cell_style", ())
                 if cell_style:
                     tables.insert(style_close(cell_style))
+
+                p_styles = getattr(tables, "open_p_styles", [])
+                last_p_style = p_styles.pop()
+                if last_p_style:
+                    tables.insert(style_close(last_p_style))
+
                 tables.open_style = ()
                 tables.cell_style = ()
+                tables.open_p_styles = p_styles
 
             if tag in {TABLE_ROW, TABLE_CELL, PARAGRAPH}:
                 tables.raise_caret()

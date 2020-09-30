@@ -113,6 +113,118 @@ def get_table_cell_style(run_element: ElementTree.Element) -> List[Tuple[str, st
 # noinspection PyPep8Naming
 
 
+def gather_pPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
+    """
+    Gather formatting elements for a text paragraph.
+
+    :param run_element: a ``<w:p>`` xml element
+
+    create with::
+
+        document = ElementTree.fromstring('bytes string')
+        # recursively search document for <w:p> elements.
+
+    :return: Style names ('b/', 'sz', etc.) mapped to values.
+
+    To keep things more homogeneous, I've given tags list b/ (bold) a value of None,
+    even though they don't take a value in xml.
+
+    Each element of pPr will be either present (returned tag: None) or have a value
+    (returned tag: val).
+
+    **E.g., given**::
+
+     <w:p>
+        <w:pPr>
+        <w:pStyle> w:val="NormalWeb"/>
+        <w:spacing w:before="120" w:after="120"/>
+        </w:pPr>
+        <w:r>
+            <w:t xml"space="preserve">I feel that there is much to be said for the Celtic belief that the souls of those whom we have lost are held captive in some inferior being...</w:t>
+        </w:r>
+    </w:p>
+
+    **E.g., returns**::
+
+        {
+            "rFonts": True,
+            "spacing": 120,
+            "u": "single",
+            "i": None,
+            "sz": "32",
+            "color": "red",
+            "szCs": "32",
+            "s": None,
+        }
+    """
+    try:
+        pPr = run_element.find(qn("w:pPr"))
+        elements = {}
+        for x in pPr:
+            tag = _elem_tag_str(x)
+            print(tag)
+            if tag == "spacing":
+                elements[tag] = {'before': x.attrib.get(
+                    qn("w:before"), None), 'after': x.attrib.get(qn("w:after"), None),
+                    'line': x.attrib.get(qn("w:line"), None), 'lineRule': x.attrib.get(qn("w:lineRule"), None),
+                    'beforeAutospacing': x.attrib.get(qn("w:beforeAutospacing"), None),
+                    'afterAutospacing': x.attrib.get(qn("w:afterAutospacing"), None)}
+            elif tag in {"jc"}:
+                elements[tag] = x.attrib.get(qn("w:val"), None)
+            elif tag == "ind":
+                elements[tag] = {
+                    'left': x.attrib.get(qn("w:left"), None),
+                    'right': x.attrib.get(qn("w:right"), None),
+                    'hanging': x.attrib.get(qn("w:hanging"), None),
+                    'firstLine': x.attrib.get(qn("w:firstLine"), None),
+                }
+        return elements
+    except TypeError:
+        # no formatting for run
+        return {}
+
+
+# noinspection PyPep8Naming
+def get_paragraph_style(run_element: ElementTree.Element) -> List[Tuple[str, str]]:
+    """Select only rPr2 tags you'd like to implement.
+
+    :param run_element: a ``<w:p>`` xml element
+
+    create with::
+
+        document = ElementTree.fromstring('bytes string')
+        # recursively search document for <w:p> elements.
+
+    :return: ``[(pPr, val), (pPr, val) ...]``
+
+    Tuples are always returned in order:
+
+    Also see docstring for ``gather_pPr``
+    """
+    pPr2val = gather_pPr(run_element)
+    style = []
+    spacings = []
+    indentations = []
+    for tag, val in sorted(pPr2val.items()):
+        if tag == "spacing":
+            for key, value in val.items():
+                spacings.append(f'{key}="{value}"')
+        elif tag == "ind":
+            for key, value in val.items():
+                indentations.append(f'{key}="{value}"')
+        elif tag in {"jc"}:
+            style.append(("justification", f'val="{val}"'))
+
+    if indentations:
+        style = [("indentation", " ".join(sorted(indentations)))] + style
+    if spacings:
+        style = [("spacing", " ".join(sorted(spacings)))] + style
+
+    return style
+
+# noinspection PyPep8Naming
+
+
 def gather_rPr(run_element: ElementTree.Element) -> Dict[str, Optional[str]]:
     """
     Gather formatting elements for a text run.
